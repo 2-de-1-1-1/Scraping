@@ -67,10 +67,10 @@ class Scrape:
 if __name__ == "__main__":
     collected_data = []
     try:
-        for page_number in range(1,5):
+        for page_number in range(1,4):
             scrape = Scrape(f"https://career.programmers.co.kr/job?page={page_number}&order=recent")
             
-            for idx in range(1,22):
+            for idx in range(1,10):
                 try :
                     data = scrape.scrape_page(idx)
                     if data:
