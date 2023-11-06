@@ -30,6 +30,9 @@ if __name__ == "__main__":
             json.dump(collected_data, f, ensure_ascii=False, indent=4)
 ```
 page_number는 페이지 범위 입니다.
+
 idx는 해당 페이지에서 스크래핑할 세부 인덱스입니다.
+
 timeoutexception 등 오류가 생기면 해당 페이지, idx에서 오류가 발생했다고 표기하고 스크래핑을 진행합니다.
+
 오류가 너무 많이 발생하거나 다른 이유로 강제종료시 그 동안 스크래핑한 데이터를 백업합니다.
