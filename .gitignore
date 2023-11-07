@@ -1,2 +1,6 @@
 venv/
 config.py
+job_test.py
+company_data/
+job_data/
+
