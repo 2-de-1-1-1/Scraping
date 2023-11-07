@@ -15,5 +15,7 @@ class DatabaseManager:
             f'PWD={self.password};'
             f'Encrypt=yes;'  
         )
-        self.cursor = self.conn.cursor()
+        self.cursor = self.conn.cursor(
+            
+        )
 
