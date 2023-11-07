@@ -39,7 +39,7 @@ class Scrape:
         
         try:
             self.driver.get(self.url)
-            wait = WebDriverWait(self.driver, 120)
+            wait = WebDriverWait(self.driver, 10)
             button = wait.until(EC.element_to_be_clickable((By.XPATH, f'//*[@id="list-positions-wrapper"]/ul/li[{idx}]')))
             ActionChains(self.driver).click(button).perform()
 
@@ -108,9 +108,9 @@ if __name__ == "__main__":
         os.makedirs(save_dir)
 
     try:
-        for page_number in range(1, 3):
+        for page_number in range(1, 7):
             scrape = Scrape(f"https://career.programmers.co.kr/job?page={page_number}&order=recent")
-            for idx in range(1, 4):
+            for idx in range(1, 12):
                 try:
                     data = scrape.scrape_page(idx)
                     job_id = data.get('id', None)

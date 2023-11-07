@@ -34,7 +34,7 @@ class Scrape:
 
         try:
             self.driver.get(self.url)
-            wait = WebDriverWait(self.driver, 60)
+            wait = WebDriverWait(self.driver, 20)
             button = wait.until(EC.element_to_be_clickable((By.XPATH, f'//*[@id="tab_position"]/section/ul/li[{idx}]/a')))
             ActionChains(self.driver).click(button).perform()
             current_url = self.driver.current_url
@@ -80,7 +80,7 @@ if __name__ == "__main__":
         os.makedirs(save_dir)
 
     try:
-        for page_number in range(1, 5):
+        for page_number in range(1, 3):
             scrape = Scrape(f"https://career.programmers.co.kr/companies?page={page_number}")            
             for idx in range(1, 18):
                 try:
@@ -117,4 +117,5 @@ if __name__ == "__main__":
         if error_messages:
             print(f"오류 로그를 '{error_filename}' 파일로 저장했습니다.")
 
+#테스트
 
