@@ -8,7 +8,7 @@ class JobApiFetcher:
         self.start_page = start_page
         self.end_page = end_page
         self.folder = folder
-        self.extracted_data = []  # 추출된 데이터를 저장할 리스트를 초기화
+        self.extracted_data = []
         
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
@@ -34,7 +34,6 @@ class JobApiFetcher:
                 print(f"Failed to fetch data from page {page}. Status code: {response.status_code}")
                 break
 
-        # 추출된 데이터를 파일에 저장
         self.save_data_to_file()
 
 

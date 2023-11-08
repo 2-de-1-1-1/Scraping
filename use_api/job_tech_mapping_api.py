@@ -9,7 +9,7 @@ class JobApiFetcher:
         self.start_page = start_page
         self.end_page = end_page
         self.folder = folder
-        self.unique_technical_tags = {}  # 중복을 방지하기 위해 딕셔너리 사용
+        self.unique_technical_tags = {} 
         
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
@@ -23,7 +23,6 @@ class JobApiFetcher:
                 jobs_data = response.json().get('jobPositions', [])
                 for job in jobs_data:
                     for tag in job.get("technicalTags", []):
-                        # 딕셔너리에 유니크하게 기술 태그 저장
                         self.unique_technical_tags[tag["id"]] = {"id": tag["id"], "name": tag["name"]}
                 print(f"Fetched and extracted data from page {page}")
             else:
@@ -32,7 +31,7 @@ class JobApiFetcher:
 
     def create_and_save_tech_mapping(self):
         mapping_data = []
-        unique_id = 1  # 매핑 데이터에 사용될 고유 ID
+        unique_id = 1 
 
         for page in range(self.start_page, self.end_page + 1):
             url = f"https://career.programmers.co.kr/api/job_positions?page={page}"
@@ -54,7 +53,6 @@ class JobApiFetcher:
                 print(f"Failed to fetch data for tech mapping from page {page}. Status code: {response.status_code}")
                 break
 
-        # 매핑 데이터를 파일에 저장합니다.
         self.save_data_to_file("job_tech_mapping_api.json", mapping_data)
 
     def save_data_to_file(self, filename, data):
@@ -68,5 +66,5 @@ if __name__ == "__main__":
     end_page_index = 71 
 
     fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index)
-    fetcher.fetch_and_extract_data()  # 데이터를 가져와서 유니크한 기술 태그 추출
-    fetcher.create_and_save_tech_mapping()  # 기술 태그 매핑 생성 및 저장
+    fetcher.fetch_and_extract_data() 
+    fetcher.create_and_save_tech_mapping() 

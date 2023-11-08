@@ -9,13 +9,13 @@ class JobApiFetcher:
         self.start_page = start_page
         self.end_page = end_page
         self.folder = folder
-        self.extracted_data = []  # 추출된 데이터를 저장할 리스트를 초기화
+        self.extracted_data = [] 
         
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
 
     def fetch_and_extract_data(self):
-        unique_technical_tags = {}  # 중복을 방지하기 위해 딕셔너리 사용
+        unique_technical_tags = {} 
 
         for page in range(self.start_page, self.end_page + 1):
             url = f"https://career.programmers.co.kr/api/job_positions?page={page}"
@@ -25,17 +25,14 @@ class JobApiFetcher:
                 jobs_data = response.json().get('jobPositions', [])
                 for job in jobs_data:
                     for tag in job.get("technicalTags", []):
-                        # 딕셔너리에 유니크하게 기술 태그 저장
                         unique_technical_tags[tag["id"]] = {"id": tag["id"], "name": tag["name"]}
                 print(f"Fetched and extracted data from page {page}")
             else:
                 print(f"Failed to fetch data from page {page}. Status code: {response.status_code}")
                 break
 
-        # 중복 제거된 기술 태그만 리스트에 추가
         self.extracted_data = list(unique_technical_tags.values())
 
-        # 추출된 데이터를 파일에 저장
         self.save_data_to_file()
 
 

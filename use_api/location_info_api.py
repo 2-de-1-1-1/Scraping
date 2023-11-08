@@ -9,7 +9,7 @@ class JobApiAddressFetcher:
         self.start_page = start_page
         self.end_page = end_page
         self.folder = folder
-        self.address_data = []  # 모든 페이지의 주소 데이터를 담을 리스트를 초기화
+        self.address_data = [] 
         
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
@@ -26,8 +26,8 @@ class JobApiAddressFetcher:
                         self.address_data.append({
                             'id': job['id'],
                             'address': job['address'],
-                            'geo_lat': None,  # Placeholder for latitude
-                            'geo_lng': None   # Placeholder for longitude
+                            'geo_lat': None, 
+                            'geo_lng': None  
                         })
                     print(f"Fetched data from page {page}")
                 else:

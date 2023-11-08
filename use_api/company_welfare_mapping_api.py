@@ -12,10 +12,10 @@ class JobApiFetcher:
         self.company_welfare_file_path = os.path.join(self.data_folder, 'company_welfare_mapping_api.json')
         self.base_job_url = "https://career.programmers.co.kr/api/job_positions?page="
         self.base_company_url = "https://career.programmers.co.kr/api/companies/"
-        self.benefit_id_map = {}  # 복지 혜택 이름과 ID를 매핑할 딕셔너리
+        self.benefit_id_map = {}  
         self.benefit_counter = 1
 
-        # 데이터 폴더가 없으면 생성합니다.
+
         if not os.path.exists(self.data_folder):
             os.makedirs(self.data_folder)
 
@@ -37,8 +37,8 @@ class JobApiFetcher:
             return []
 
     def generate_unique_benefits_and_mapping(self):
-        company_benefit_relations = []  # 회사와 복지 혜택 관계를 저장하는 리스트
-        mapping_id = 1  # 관계 ID
+        company_benefit_relations = [] 
+        mapping_id = 1
 
         for page in range(self.start_page, self.end_page + 1):
             job_data = self.fetch_job_positions(page)
@@ -47,11 +47,9 @@ class JobApiFetcher:
                     company_id = job['companyId']
                     benefits = self.fetch_company_benefits(company_id)
                     for benefit in benefits:
-                        # 이미 존재하는 복지 혜택인지 확인하고, 새로운 혜택이면 ID 할당
                         if benefit not in self.benefit_id_map:
                             self.benefit_id_map[benefit] = self.benefit_counter
                             self.benefit_counter += 1
-                        # 회사와 복지 혜택 관계 매핑
                         company_benefit_relations.append({
                             "id": mapping_id,
                             "company_id": company_id,
@@ -59,7 +57,6 @@ class JobApiFetcher:
                         })
                         mapping_id += 1
 
-        # 회사와 복지 혜택 관계를 파일에 저장합니다.
         with open(self.company_welfare_file_path, 'w', encoding='utf-8') as company_welfare_file:
             json.dump(company_benefit_relations, company_welfare_file, ensure_ascii=False, indent=4)
         
@@ -67,7 +64,7 @@ class JobApiFetcher:
 
 if __name__ == "__main__":
     start_page_index = 1
-    end_page_index = 71  # 필요에 맞게 조정하세요.
+    end_page_index = 71 
     data_folder = 'api_data'
 
     fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index, data_folder=data_folder)

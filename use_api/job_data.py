@@ -9,7 +9,7 @@ class JobApiFetcher:
         self.start_page = start_page
         self.end_page = end_page
         self.folder = folder
-        self.all_data = []  # 모든 페이지 데이터를 담을 리스트를 초기화
+        self.all_data = []  
         
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
@@ -22,7 +22,7 @@ class JobApiFetcher:
             if response.status_code == 200:
                 data = response.json()
                 if 'jobPositions' in data:
-                    self.all_data.extend(data['jobPositions'])  # 페이지 데이터를 리스트에 추가
+                    self.all_data.extend(data['jobPositions']) 
                     print(f"Fetched data from page {page}")
                 else:
                     print(f"The 'jobPositions' key is missing in the response from page {page}.")

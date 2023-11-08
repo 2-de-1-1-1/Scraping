@@ -13,7 +13,7 @@ class JobApiFetcher:
         self.base_job_url = "https://career.programmers.co.kr/api/job_positions?page="
         self.base_company_url = "https://career.programmers.co.kr/api/companies/"
 
-        # 데이터 폴더가 없으면 생성합니다.
+
         if not os.path.exists(self.data_folder):
             os.makedirs(self.data_folder)
 
@@ -35,8 +35,8 @@ class JobApiFetcher:
             return []
 
     def generate_unique_tech_stacks_and_mapping(self):
-        company_tech_stack_relations = []  # 회사와 기술 스택 관계를 저장하는 리스트
-        existing_tech_stacks = set()  # 중복 검사를 위한 기술 스택 ID 세트
+        company_tech_stack_relations = []  
+        existing_tech_stacks = set()  
         mapping_id = 1
 
         for page in range(self.start_page, self.end_page + 1):
@@ -56,7 +56,7 @@ class JobApiFetcher:
                             })
                             mapping_id += 1
 
-        # 회사와 기술 스택 관계를 파일에 저장합니다.
+
         with open(self.company_tech_stack_file_path, 'w', encoding='utf-8') as company_tech_stack_file:
             json.dump(company_tech_stack_relations, company_tech_stack_file, ensure_ascii=False, indent=4)
         
@@ -64,7 +64,7 @@ class JobApiFetcher:
 
 if __name__ == "__main__":
     start_page_index = 1
-    end_page_index = 71  # 실제 요구에 맞게 조정하세요.
+    end_page_index = 71  
     data_folder = 'api_data'
 
     fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index, data_folder=data_folder)

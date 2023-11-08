@@ -30,7 +30,6 @@ class JobApiFetcher:
         if response.status_code == 200:
             self.companies_seen.add(company_id)
             data = response.json()
-            # Filter and return only the id and name of each technical tag
             technical_tags = [
                 {'id': tag['id'], 'name': tag['name']}
                 for tag in data['company'].get('technicalTags', [])

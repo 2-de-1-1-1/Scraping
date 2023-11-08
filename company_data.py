@@ -9,7 +9,7 @@ class JobApiFetcher:
         self.end_page = end_page
         self.data_folder = data_folder  # 데이터를 저장할 폴더
         self.output_file = os.path.join(self.data_folder, 'company_data.json')  # 파일 경로를 폴더와 함께 설정
-        self.all_data = []  # 모든 데이터를 저장할 리스트
+        self.all_company_data = []
 
         # 데이터 폴더가 없으면 생성합니다.
         if not os.path.exists(self.data_folder):
@@ -22,7 +22,7 @@ class JobApiFetcher:
             
             if response.status_code == 200:
                 data = response.json()
-                self.all_data.extend(data['jobPositions'])  # 전체 데이터에 추가
+                self.all_company_data.extend(data['jobPositions'])  # 전체 회사 데이터에 추가
                 
                 print(f"Processed page {page}")
             else:
@@ -34,13 +34,15 @@ class JobApiFetcher:
     def save_data(self):
         # 모든 페이지 처리 후 데이터 저장
         with open(self.output_file, 'w', encoding='utf-8') as file:
-            json.dump(self.all_data, file, ensure_ascii=False, indent=4)
+            # 여기서는 all_company_data 내 각 요소의 'company' 키에 대응되는 값을 저장합니다.
+            companies = [job['company'] for job in self.all_company_data]
+            json.dump(companies, file, ensure_ascii=False, indent=4)
             print(f"Data saved to {self.output_file}")
 
 # 메인 실행 구문
 if __name__ == "__main__":
     start_page_index = 1
-    end_page_index = 71
+    end_page_index = 71  
     
     fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index)
     fetcher.fetch_data()

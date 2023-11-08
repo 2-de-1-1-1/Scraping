@@ -49,10 +49,8 @@ class JobApiFetcher:
                     if benefits:
                         self.benefits.update(benefits)
 
-        # Assign a unique ID to each benefit and save to list
         unique_benefits_data = [{"id": idx + 1, "name": benefit} for idx, benefit in enumerate(self.benefits)]
 
-        # Save the unique benefits to a file
         with open(self.output_file_path, 'w', encoding='utf-8') as file:
             json.dump(unique_benefits_data, file, ensure_ascii=False, indent=4)
 
