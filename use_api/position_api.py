@@ -10,7 +10,7 @@ class JobApiFetcher:
         self.end_page = end_page
         self.folder = folder
         self.base_url = "https://career.programmers.co.kr/api/job_positions/job_categories"
-        self.extracted_data = [] 
+        self.extracted_data = []  # 추출된 데이터를 저장할 리스트를 초기화
         
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
@@ -36,8 +36,8 @@ class JobApiFetcher:
         print(f"Saved extracted data to {file_path}")
 
 if __name__ == "__main__":
-    start_page_index = 1 
-    end_page_index = 1    
+    start_page_index = 1  # 시작 페이지
+    end_page_index = 1    # 종료 페이지 (테스트를 위해 1로 설정, 필요에 따라 변경)
 
     fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index)
     fetcher.fetch_and_extract_data()
