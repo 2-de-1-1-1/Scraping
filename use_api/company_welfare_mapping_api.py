@@ -37,10 +37,12 @@ class JobApiFetcher:
             return []
 
     def generate_unique_benefits_and_mapping(self):
+        print(f"회사와 복지 혜택 매핑 정보 생성을 시작합니다...")
         company_benefit_relations = [] 
         mapping_id = 1
 
         for page in range(self.start_page, self.end_page + 1):
+            print(f"페이지 {page}에서 직무 정보를 가져오고 있습니다...")
             job_data = self.fetch_job_positions(page)
             if job_data:
                 for job in job_data['jobPositions']:
@@ -56,6 +58,8 @@ class JobApiFetcher:
                             "welfare_id": self.benefit_id_map[benefit]
                         })
                         mapping_id += 1
+                    
+            print(f"페이지 {page} 처리 완료.")
 
         with open(self.company_welfare_file_path, 'w', encoding='utf-8') as company_welfare_file:
             json.dump(company_benefit_relations, company_welfare_file, ensure_ascii=False, indent=4)
@@ -64,7 +68,7 @@ class JobApiFetcher:
 
 if __name__ == "__main__":
     start_page_index = 1
-    end_page_index = 71 
+    end_page_index = 3
     data_folder = 'api_data'
 
     fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index, data_folder=data_folder)

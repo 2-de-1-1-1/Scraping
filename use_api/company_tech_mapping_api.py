@@ -39,6 +39,8 @@ class JobApiFetcher:
         existing_tech_stacks = set()  
         mapping_id = 1
 
+        print("회사 테크 스택 매핑 진행중")
+
         for page in range(self.start_page, self.end_page + 1):
             job_data = self.fetch_job_positions(page)
             if job_data:
@@ -55,6 +57,7 @@ class JobApiFetcher:
                                 "tech_stack_id": tech_stack_id
                             })
                             mapping_id += 1
+                print((f"{page} 페이지 진행 완료."))
 
 
         with open(self.company_tech_stack_file_path, 'w', encoding='utf-8') as company_tech_stack_file:
@@ -64,7 +67,7 @@ class JobApiFetcher:
 
 if __name__ == "__main__":
     start_page_index = 1
-    end_page_index = 71  
+    end_page_index = 10
     data_folder = 'api_data'
 
     fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index, data_folder=data_folder)

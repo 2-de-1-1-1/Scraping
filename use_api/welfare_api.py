@@ -40,7 +40,10 @@ class JobApiFetcher:
             return []
 
     def fetch_and_save_unique_benefits(self):
+        print(f"복지 혜택 데이터 수집을 시작합니다. 대상 페이지 범위: {self.start_page} ~ {self.end_page}")
+
         for page in range(self.start_page, self.end_page + 1):
+            print(f"{page}페이지의 직무 정보를 수집 중입니다...")
             job_data = self.fetch_job_positions(page)
             if job_data:
                 for job in job_data['jobPositions']:
@@ -49,16 +52,18 @@ class JobApiFetcher:
                     if benefits:
                         self.benefits.update(benefits)
 
+            print(f"{page}페이지 처리 완료.")
+
         unique_benefits_data = [{"id": idx + 1, "name": benefit} for idx, benefit in enumerate(self.benefits)]
 
         with open(self.output_file_path, 'w', encoding='utf-8') as file:
             json.dump(unique_benefits_data, file, ensure_ascii=False, indent=4)
 
-        print(f"Saved unique benefits data to {self.output_file_path}")
+        print(f"복지 정보를 저장했습니다. {self.output_file_path}")
 
 if __name__ == "__main__":
     start_page_index = 1
-    end_page_index = 71 
+    end_page_index = 3
     data_folder = 'api_data'
 
     fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index, data_folder=data_folder)
