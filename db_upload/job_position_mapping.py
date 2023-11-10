@@ -4,6 +4,9 @@ import os
 import sys
 from config import *
 import datetime
+from logging_config import *
+
+logger = logging.getLogger(script_name)
 
 class JobApiFetcher:
     def __init__(self, start_page, end_page):
@@ -35,12 +38,12 @@ class JobApiFetcher:
                                 "job_id": job["id"],
                                 "position_id": category_id
                             })
-                    print(f"{page} 수집 완료")
+                    logger.info(f"{page} 수집 완료")
                 else:
-                    print(f"{page} job position key가 없습니다.")
+                    logger.info(f"{page} job position key가 없습니다.")
                     break
             else:
-                print(f" {page} 로드 실패. Status code: {response.status_code}")
+                logger.info(f" {page} 로드 실패. Status code: {response.status_code}")
                 break
     
     def upload_position_mapping_data(self):
@@ -63,12 +66,12 @@ class JobApiFetcher:
                 try:
                     self.cursor.execute(insert_query, values)
                     self.conn.commit()
-                    print(f"{job_id}, {position_id} 업로드 완료")
+                    logger.info(f"{job_id}, {position_id} 업로드 완료")
                 except Exception as e:
-                    print(f"{job_id}에서 오류 발생: {e}")
+                    logger.info(f"{job_id}에서 오류 발생: {e}")
                     self.conn.rollback()
             else:
-                print(f"{job_id}, {position_id} 이미 데이터베이스에 존재하여 업로드 건너뛰었습니다.")
+                logger.info(f"{job_id}, {position_id} 이미 데이터베이스에 존재하여 업로드 건너뛰었습니다.")
 
     def job_position_pair_exists(self, job_id, position_id):
         query = "SELECT COUNT(*) FROM job_position_mapping WHERE job_id = ? AND position_id = ?"
@@ -78,7 +81,7 @@ class JobApiFetcher:
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python location_info.py start_page end_page")
+        logger.info("Usage: python location_info.py start_page end_page")
         sys.exit(1)
 
     start_page = int(sys.argv[1])

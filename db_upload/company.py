@@ -4,6 +4,9 @@ import pyodbc
 from config import *
 import datetime
 import sys
+from logging_config import *
+
+logger = logging.getLogger(script_name)
 
 class JobApiFetcher:
     def __init__(self, start_page, end_page):
@@ -23,10 +26,10 @@ class JobApiFetcher:
     def fetch_job_positions(self, page):
         response = requests.get(self.base_job_url + str(page))
         if response.status_code == 200:
-            print(f"페이지 {page}: 직무 정보를 성공적으로 가져왔습니다.")
+            logger.info(f"페이지 {page}: 직무 정보를 성공적으로 가져왔습니다.")
             return response.json()
         else:
-            print(f"페이지 {page}: 직무 정보 가져오기 실패. 상태 코드: {response.status_code}")
+            logger.info(f"페이지 {page}: 직무 정보 가져오기 실패. 상태 코드: {response.status_code}")
             return None
 
     def check_company_exists(self, company_id):
@@ -54,11 +57,11 @@ class JobApiFetcher:
                 )
                 self.cursor.execute(insert_query, values)
                 self.conn.commit()
-                print(f"기업 ID {company_data['id']}가 데이터베이스에 추가되었습니다.")
+                logger.info(f"기업 ID {company_data['id']}가 데이터베이스에 추가되었습니다.")
             else:
-                print(f"기업 ID {company_data['id']}는 이미 데이터베이스에 존재합니다.")
+                logger.info(f"기업 ID {company_data['id']}는 이미 데이터베이스에 존재합니다.")
         except Exception as e:
-            print(f"기업 ID {company_data['id']} 추가 중 오류가 발생했습니다: {e}")
+            logger.info(f"기업 ID {company_data['id']} 추가 중 오류가 발생했습니다: {e}")
 
 def preprocess_company(company_data):
     investment = company_data.get('funding')
@@ -93,16 +96,16 @@ def fetch_and_upload_companies(fetcher, start_page, end_page):
                         processed_companies.add(company_id)
                         processed_company_data = preprocess_company(company_info)
                         fetcher.upload_company_data(processed_company_data)  # 업로드
-            print(f"페이지 {page} 처리 완료.")
+            logger.info(f"페이지 {page} 처리 완료.")
         else:
-            print(f"페이지 {page} 처리 실패, 상태 코드: {response.status_code}")
+            logger.info(f"페이지 {page} 처리 실패, 상태 코드: {response.status_code}")
             break
 
-    print("모든 기업 데이터가 서버 데이터베이스에 업로드되었습니다.")
+    logger.info("모든 기업 데이터가 서버 데이터베이스에 업로드되었습니다.")
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python location_info.py start_page end_page")
+        logger.info("Usage: python location_info.py start_page end_page")
         sys.exit(1)
 
     start_page = int(sys.argv[1])

@@ -84,7 +84,7 @@ class JobApiFetcher:
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        logger.error("Usage: python location_info.py start_page end_page")
+        logger.info("Usage: python location_info.py start_page end_page")
         sys.exit(1)
 
     start_page = int(sys.argv[1])

@@ -71,7 +71,7 @@ class JobApiFetcher:
                 logger.info(f"기술 스택 추가: ID {tech_id}, Name {tech_name}")
                 return True
             except Exception as e:
-                logger.error(f"기술 스택 추가 중 오류 발생 : ID {tech_id}, Name {tech_name} - {e}")
+                logger.info(f"기술 스택 추가 중 오류 발생 : ID {tech_id}, Name {tech_name} - {e}")
                 self.conn.rollback()
         return False
 
@@ -104,7 +104,7 @@ class JobApiFetcher:
                     logger.info(f"데이터 삽입 완료: job_id {job_id}, tech_id {tech_id}")
                     processed_tech_job_pairs.add((job_id, tech_id))
                 except Exception as e:
-                    logger.error(f"데이터 삽입 중 오류 발생: job_id {job_id}, tech_id {tech_id} - {e}")
+                    logger.info(f"데이터 삽입 중 오류 발생: job_id {job_id}, tech_id {tech_id} - {e}")
                     self.conn.rollback()
 
     def check_tech_job_pair_exists(self, job_id, tech_id):
@@ -117,7 +117,7 @@ class JobApiFetcher:
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        logger.error("Usage: python location_info.py start_page end_page")
+        logger.info("Usage: python location_info.py start_page end_page")
         sys.exit(1)
 
     start_page = int(sys.argv[1])
