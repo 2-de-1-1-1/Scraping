@@ -100,7 +100,7 @@ def fetch_and_upload_companies(fetcher, start_page, end_page):
 
 if __name__ == "__main__":
     start_page_index = 1
-    end_page_index = 71
+    end_page_index = 2
 
     fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index)
     fetch_and_upload_companies(fetcher, start_page_index, end_page_index)
