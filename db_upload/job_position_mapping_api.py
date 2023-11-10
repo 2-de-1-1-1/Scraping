@@ -3,7 +3,6 @@ import pyodbc
 import os
 from config import *
 import datetime
-#job_position_mapping 테이블에 데이터를 전처리하는 스크립트입니다.
 
 class JobApiFetcher:
     def __init__(self, start_page, end_page):
@@ -33,25 +32,22 @@ class JobApiFetcher:
                                 "job_id": job["id"],
                                 "position_id": category_id
                             })
-                    print(f"Fetched data from page {page}")
+                    print(f"{page} 수집 완료")
                 else:
-                    print(f"The 'jobPositions' key is missing in the response from page {page}.")
+                    print(f"{page} job position key가 없습니다.")
                     break
             else:
-                print(f"Failed to fetch data from page {page}. Status code: {response.status_code}")
+                print(f" {page} 로드 실패. Status code: {response.status_code}")
                 break
     
     def upload_position_mapping_data(self):
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        unique_id = 1
         insert_query = '''
-        INSERT INTO job_position_mapping (id, job_id, position_id, created_at, modified_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO job_position_mapping (job_id, position_id, created_at, modified_at)
+        VALUES (?, ?, ?, ?)
         '''
         for data in self.filtered_data:
-            # 여기서 id 값을 생성하거나 가져와야 함
             values = (
-                unique_id,
                 data["job_id"],
                 data["position_id"],
                 now,
@@ -60,9 +56,9 @@ class JobApiFetcher:
             try:
                 self.cursor.execute(insert_query, values)
                 self.conn.commit()
-                unique_id += 1
+                print(f"{data['job_id']}, {data['position_id']} 업로드 완료")
             except Exception as e:
-                print(f"Error inserting data: {e}")
+                print(f"{data['job_id']}에서 오류 발생: {e}")
                 self.conn.rollback()
 
 if __name__ == "__main__":

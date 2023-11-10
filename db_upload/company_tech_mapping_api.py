@@ -1,74 +1,127 @@
 import requests
-import json
-import os
-
-#company_tech_mapping 테이블의 정보를 전처리하는 스크립트입니다.
+from config import *
+import pyodbc
+import datetime
 
 class JobApiFetcher:
-    def __init__(self, start_page, end_page, data_folder='api_data'):
+    def __init__(self, start_page, end_page):
         self.start_page = start_page
         self.end_page = end_page
-        self.data_folder = data_folder
-        self.company_tech_stack_file_path = os.path.join(self.data_folder, 'company_tech_stack_mapping_api.json')
         self.base_job_url = "https://career.programmers.co.kr/api/job_positions?page="
         self.base_company_url = "https://career.programmers.co.kr/api/companies/"
-
-
-        if not os.path.exists(self.data_folder):
-            os.makedirs(self.data_folder)
+        self.companies_seen = set()
+        self.conn = pyodbc.connect(
+            f'DRIVER={driver};'
+            f'SERVER={server};'
+            f'DATABASE={database};'
+            f'UID={username};'
+            f'PWD={password};'
+        )
+        self.cursor = self.conn.cursor()
 
     def fetch_job_positions(self, page):
-        response = requests.get(f"{self.base_job_url}{page}")
+        response = requests.get(self.base_job_url + str(page))
         if response.status_code == 200:
             return response.json()
         else:
-            print(f"{page} 페이지의 직무 정보를 가져오는데 실패했습니다. 상태 코드: {response.status_code}")
+            print(f"{page}로드 실패. Status code: {response.status_code}")
             return None
 
-    def fetch_company_technical_tags(self, company_id):
-        response = requests.get(f"{self.base_company_url}{company_id}")
+    def fetch_company_details(self, company_id):
+        if company_id in self.companies_seen:
+            return None
+        response = requests.get(self.base_company_url + str(company_id))
         if response.status_code == 200:
-            company_data = response.json()
-            return company_data['company'].get('technicalTags', [])
+            self.companies_seen.add(company_id)
+            data = response.json()
+            technical_tags = [
+                {'company_id': company_id, 'tech_id': tag['id'], 'name' : tag['name']}
+                for tag in data['company'].get('technicalTags', [])
+            ]
+            return technical_tags
         else:
-            print(f"회사 ID {company_id}의 기술 태그를 가져오는데 실패했습니다. 상태 코드: {response.status_code}")
+            print(f" {company_id}기술 태그 수집 실패. Status code: {response.status_code}")
             return []
 
-    def generate_unique_tech_stacks_and_mapping(self):
-        company_tech_stack_relations = []  
-        existing_tech_stacks = set()  
-        mapping_id = 1
-
-        print("회사 테크 스택 매핑 진행중")
+    def fetch_data(self):
+        all_technical_data = []
 
         for page in range(self.start_page, self.end_page + 1):
             job_data = self.fetch_job_positions(page)
             if job_data:
                 for job in job_data['jobPositions']:
                     company_id = job['companyId']
-                    technical_tags = self.fetch_company_technical_tags(company_id)
-                    for tech_stack in technical_tags:
-                        tech_stack_id = tech_stack['id']
-                        if tech_stack_id not in existing_tech_stacks:
-                            existing_tech_stacks.add(tech_stack_id)
-                            company_tech_stack_relations.append({
-                                "id" : mapping_id,
-                                "company_id": company_id,
-                                "tech_stack_id": tech_stack_id
-                            })
-                            mapping_id += 1
-                print((f"{page} 페이지 진행 완료."))
-
-
-        with open(self.company_tech_stack_file_path, 'w', encoding='utf-8') as company_tech_stack_file:
-            json.dump(company_tech_stack_relations, company_tech_stack_file, ensure_ascii=False, indent=4)
+                    technical_tags = self.fetch_company_details(company_id)
+                    if technical_tags:
+                        all_technical_data.extend(technical_tags)
+            
+            print(f"{page}페이지 진행중")
         
-        print(f"회사와 기술 스택 관계 데이터를 {self.company_tech_stack_file_path}에 저장했습니다.")
+        return all_technical_data
+
+    def upload_compnay_tech_data(self, all_technical_data):
+        now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        insert_query = '''
+        INSERT INTO company_tech_mapping (company_id, tech_id, created_at, modified_at)
+        VALUES (?, ?, ?, ?)
+        '''
+
+        for data in all_technical_data:
+            tech_id = data["tech_id"]
+            tech_name = data["name"]
+
+            if not self.check_tech_id_exists(tech_id):
+                self.insert_new_tech_stack(tech_id, tech_name)
+            
+            values = (
+                data["company_id"],
+                data["tech_id"],
+                now,
+                now
+            )
+            try:
+                self.cursor.execute(insert_query, values)
+                self.conn.commit()
+            except Exception as e:
+                print(f"데이터 삽입 중 오류 발생 : tech_id {data['tech_id']} - {e}")
+                self.conn.rollback()
+        
+    def check_tech_id_exists(self, tech_id):
+        select_query = '''
+        SELECT id FROM tech_stack WHERE id = ?
+        '''
+        self.cursor.execute(select_query, (tech_id,))
+        row = self.cursor.fetchone()
+        return row is not None
+    
+    def insert_new_tech_stack(self, tech_id, tech_name):
+        now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        insert_query = '''
+        INSERT INTO tech_stack (id, name, created_at, modified_at)
+        VALUES (?, ?, ?, ?)
+        '''
+
+        values = (
+            tech_id,
+            tech_name,
+            now,
+            now
+        )
+        
+        try:
+            self.cursor.execute(insert_query, values)
+            self.conn.commit()
+            print(f"기술 스택 추가: ID {tech_id}, Name {tech_name}")
+        except Exception as e:
+            print(f"기술 스택 추가 중 오류 발생 : ID {tech_id}, Name {tech_name} - {e}")
+            self.conn.rollback()
+
 
 if __name__ == "__main__":
     start_page_index = 1
-    end_page_index = 10
-    data_folder = 'api_data'
+    end_page_index = 71
 
-    fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index, data_folder=data_folder)
-    fetcher.generate_unique_tech_stacks_and_mapping()
+
+    fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index)
+    all_technical_data = fetcher.fetch_data()
+    fetcher.upload_compnay_tech_data(all_technical_data)

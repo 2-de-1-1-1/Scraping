@@ -75,7 +75,7 @@ def preprocess_company(company_data):
         'investment': None if investment is None or investment == 0 else int(investment * 1000000),
         'revenue': None if revenue is None or revenue == 0 else int(revenue * 1000000),
         'homepage': company_data.get('homeUrl'),
-        'loc_info_id': None if address is None else company_data['id'],
+        'loc_info_id': None if not address else company_data['id'],
     }
     
     return new_company_data
@@ -83,7 +83,7 @@ def preprocess_company(company_data):
 # 메인 실행 로직
 if __name__ == "__main__":
     start_page_index = 1
-    end_page_index = 71
+    end_page_index = 3
 
     fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index)
 

@@ -18,9 +18,8 @@ cursor = conn.cursor()
 
 def insert_data_to_table(cursor, extracted_data):
     try:
-        for page_data in extracted_data:  # extracted_data는 리스트의 리스트입니다.
-            for record in page_data:  # 각 page_data는 딕셔너리들을 포함한 리스트입니다.
-                # INSERT 쿼리에 created_at과 modified_at 컬럼을 추가합니다.
+        for page_data in extracted_data:  
+            for record in page_data: 
                 insert_query = '''INSERT INTO position (id, name, created_at, modified_at)
                                 VALUES (?, ?, GETDATE(), GETDATE())'''
                 values = (record['id'], record['name'])  # 딕셔너리의 키를 사용하여 값 추출
@@ -37,9 +36,15 @@ class JobApiFetcher:
         self.folder = folder
         self.base_url = "https://career.programmers.co.kr/api/job_positions/job_categories"
         self.extracted_data = [] 
-        
-        if not os.path.exists(self.folder):
-            os.makedirs(self.folder)
+        self.conn = pyodbc.connect(
+            f'DRIVER={driver};'
+            f'SERVER={server};'
+            f'DATABASE={database};'
+            f'UID={username};'
+            f'PWD={password};'
+        )
+        self.cursor = self.conn.cursor()
+
 
     def fetch_and_extract_data(self):
         for page in range(self.start_page, self.end_page + 1):
@@ -53,13 +58,19 @@ class JobApiFetcher:
             else:
                 print(f"Failed to fetch data from page {page}. Status code: {response.status_code}")
                 break
-
-    def save_data_to_file(self):
-        file_name = "position_api.json"
-        file_path = os.path.join(self.folder, file_name)
-        with open(file_path, 'w', encoding='utf-8') as file:
-            json.dump(self.extracted_data, file, ensure_ascii=False, indent=4)
-        print(f"Saved extracted data to {file_path}")
+    
+    def insert_data_to_table(cursor, extracted_data):
+        try:
+            for page_data in extracted_data:  
+                for record in page_data: 
+                    insert_query = '''INSERT INTO position (id, name, created_at, modified_at)
+                                    VALUES (?, ?, GETDATE(), GETDATE())'''
+                    values = (record['id'], record['name']) 
+                    cursor.execute(insert_query, values)
+            cursor.commit() 
+        except Exception as e: 
+            print(f"An error occurred: {e}")
+            cursor.rollback()  
 
     def save_data_to_db(self):
         insert_data_to_table(cursor, self.extracted_data)
