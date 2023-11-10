@@ -46,23 +46,23 @@ class JobApiFetcher:
                 for job in job_data['jobPositions']:
                     company_id = job['companyId']
                     benefits = self.fetch_company_benefits(company_id)
-                    if benefits is not None:  
-                        all_benefit_data.append({
-                            'company_id': company_id,
-                            'welfare': benefits
-                        })
-
+                    if benefits is not None:
+                        for benefit in benefits:
+                            all_benefit_data.append({
+                                'company_id': company_id,
+                                'welfare_name': benefit
+                            })
 
         with open(self.output_file, 'w', encoding='utf-8') as file:
             json.dump(all_benefit_data, file, ensure_ascii=False, indent=4)
-        
+
         print(f"Saved all data to {self.output_file}")
 
 if __name__ == "__main__":
     start_page_index = 1
     end_page_index = 3
     data_folder = 'api_data'  
-    output_file = 'company_welfare_api.json'  
+    output_file = 'company_welfare_api2.json'  
 
 
     fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index, data_folder=data_folder, output_file=output_file)

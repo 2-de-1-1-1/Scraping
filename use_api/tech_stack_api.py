@@ -69,7 +69,7 @@ class JobApiFetcher:
 # 스크립트 실행 부분
 if __name__ == "__main__":
     start_page_index = 1  
-    end_page_index = 3
+    end_page_index = 71
     data_folder = 'api_data'  
 
     # JobApiFetcher 인스턴스 생성 및 메소드 호출

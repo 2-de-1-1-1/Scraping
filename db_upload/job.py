@@ -174,10 +174,9 @@ class JobApiFetcher:
                 print(f"페이지 {page} 처리 실패, 상태 코드: {job_data.status_code}")
                 break
 
-
 if __name__ == "__main__":
     start_page_index = 1
-    end_page_index = 3
+    end_page_index = 71
 
     fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index)
 

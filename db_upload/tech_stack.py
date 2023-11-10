@@ -1,8 +1,7 @@
 import requests
 import datetime
-import json
-from config import *
 import pyodbc
+from config import *
 
 class JobApiFetcher:
     def __init__(self, start_page, end_page):
@@ -21,7 +20,6 @@ class JobApiFetcher:
         )
         self.cursor = self.conn.cursor()
 
-
     def fetch_job_tech_stack(self, page):
         response = requests.get(f"{self.base_job_url}{page}")
         if response.status_code == 200:
@@ -33,11 +31,11 @@ class JobApiFetcher:
                     tag_name = tag.get('name')
                     if tag_id and tag_name:
                         self.tech_stack.add((tag_id, tag_name))
+            print(f"페이지 {page}의 테크 스택 데이터 수집 완료")
             return True
         else:
             print(f"{page} 페이지 실패했습니다. 상태 코드: {response.status_code}")
             return False
-
 
     def fetch_company_tech_stack(self, company_id):
         if company_id in self.companies_seen:
@@ -52,7 +50,7 @@ class JobApiFetcher:
             ]
             for tag in technical_tags:
                 self.tech_stack.add((tag['id'], tag['name']))
-            
+            print(f"회사 ID {company_id}의 테크 스택 데이터 수집 완료")
             return technical_tags
         else:
             print(f"실패 {company_id}. Status code: {response.status_code}")
@@ -62,40 +60,26 @@ class JobApiFetcher:
         tech_stack_dict = {tech_id: tech_name for tech_id, tech_name in self.tech_stack}
 
         try:
-            conn = pyodbc.connect(
-                f'DRIVER={driver};'
-                f'SERVER={server};'
-                f'DATABASE={database};'
-                f'UID={username};'
-                f'PWD={password};'
-            )
-            cursor = conn.cursor()
-
-            # 기술 스택 데이터를 tech_stack 테이블에 추가
             for tech_id, tech_name in tech_stack_dict.items():
-                cursor.execute("""
-                    INSERT INTO tech_stack (id, name, created_at, modified_at)
-                    VALUES (?, ?, ?, ?)
-                """, (tech_id, tech_name, datetime.datetime.now(), datetime.datetime.now()))
-            
-            conn.commit()
-            print("기술 스택 데이터를 데이터베이스에 업로드했습니다.")
+                self.cursor.execute("SELECT COUNT(1) FROM tech_stack WHERE id=?", tech_id)
+                count = self.cursor.fetchone()[0]
+
+                if count == 0:
+                    self.cursor.execute("""
+                        INSERT INTO tech_stack (id, name, created_at, modified_at)
+                        VALUES (?, ?, ?, ?)
+                    """, (tech_id, tech_name, datetime.datetime.now(), datetime.datetime.now()))
+            self.conn.commit()
+            print("테크 스택 데이터를 데이터베이스에 업로드했습니다.")
         except Exception as e:
             print(f"데이터베이스 업로드 중 오류 발생: {str(e)}")
         finally:
-            cursor.close()
-            conn.close()
-
+            self.cursor.close()
+            self.conn.close()
 
 if __name__ == "__main__":
     start_page = 1  
     end_page = 71
 
     fetcher = JobApiFetcher(start_page, end_page)
-
-    for page_index in range(start_page, end_page + 1):
-        success = fetcher.fetch_job_tech_stack(page_index)
-        if not success:
-            print(f"{page_index} 페이지의 기술 스택 수집 실패")
-
     fetcher.upload_tech_stack_to_db()

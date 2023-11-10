@@ -39,7 +39,7 @@ class JobApiFetcher:
 
 if __name__ == "__main__":
     start_page_index = 1
-    end_page_index = 71
+    end_page_index = 5
     
     fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index)
     fetcher.fetch_data()

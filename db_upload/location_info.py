@@ -1,7 +1,8 @@
 import requests
 import pyodbc
 import datetime
-from config import *   # 데이터베이스 연결 정보를 담고 있는 로컬 모듈
+from config import *  
+
 
 class JobApiFetcher:
     def __init__(self, start_page, end_page):
@@ -10,7 +11,6 @@ class JobApiFetcher:
         self.base_job_url = "https://career.programmers.co.kr/api/job_positions?page="
         self.base_company_url = "https://career.programmers.co.kr/api/companies/"
         self.companies_seen = set()
-        # 데이터베이스 연결 설정
         self.conn = pyodbc.connect(
             f'DRIVER={driver};'
             f'SERVER={server};'
@@ -46,14 +46,14 @@ class JobApiFetcher:
             INSERT INTO location_info (id, address, geo_lat, geo_alt, created_at, modified_at)
             VALUES (?, ?, ?, ?, ?, ?)
         '''
-        current_time = datetime.datetime.now()
+        now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self.cursor.execute(insert_query, (
             company_data['id'],
             company_data['address'],
             company_data['latitude'],
             company_data['longitude'],
-            current_time,
-            current_time
+            now,
+            now
         ))
         self.conn.commit()
 

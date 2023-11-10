@@ -66,21 +66,19 @@ class JobApiFetcher:
 
     def insert_data_to_db(self, benefit):
         insert_query = '''
-            INSERT INTO welfare (id, name, created_at, modified_at)
+            INSERT INTO welfare (name, created_at, modified_at)
             VALUES (?, ?, ?, ?)
         '''
         current_time = datetime.datetime.now()
         
         # 혜택을 데이터베이스에 삽입
         self.cursor.execute(insert_query, (
-            self.next_id,
             benefit,
             current_time,
             current_time
         ))
         
-        self.next_id += 1  # 다음 ID를 증가
-        self.conn.commit()  # 변경 사항 커밋
+        self.conn.commit() 
 
         print(f"데이터베이스에 혜택 '{benefit}' 데이터를 성공적으로 삽입했습니다.")
 
