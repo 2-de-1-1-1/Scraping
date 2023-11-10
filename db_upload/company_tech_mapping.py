@@ -3,25 +3,16 @@ from config import *
 import pyodbc
 import datetime
 import sys
+
+from fetcher import ApiFetcher
 from logging_config import *
 
 logger = logging.getLogger(script_name)
 
-class JobApiFetcher:
+
+class CompanyTechFetcher(ApiFetcher):
     def __init__(self, start_page, end_page):
-        self.start_page = start_page
-        self.end_page = end_page
-        self.base_job_url = "https://career.programmers.co.kr/api/job_positions?page="
-        self.base_company_url = "https://career.programmers.co.kr/api/companies/"
-        self.companies_seen = set()
-        self.conn = pyodbc.connect(
-            f'DRIVER={driver};'
-            f'SERVER={server};'
-            f'DATABASE={database};'
-            f'UID={username};'
-            f'PWD={password};'
-        )
-        self.cursor = self.conn.cursor()
+        super().__init__(start_page, end_page)
 
     def fetch_job_positions(self, page):
         response = requests.get(self.base_job_url + str(page))
@@ -39,7 +30,7 @@ class JobApiFetcher:
             self.companies_seen.add(company_id)
             data = response.json()
             technical_tags = [
-                {'company_id': company_id, 'tech_id': tag['id'], 'name' : tag['name']}
+                {'company_id': company_id, 'tech_id': tag['id'], 'name': tag['name']}
                 for tag in data['company'].get('technicalTags', [])
             ]
             return technical_tags
@@ -58,14 +49,14 @@ class JobApiFetcher:
                     technical_tags = self.fetch_company_details(company_id)
                     if technical_tags:
                         all_technical_data.extend(technical_tags)
-            
+
             logger.info(f"{page}페이지 진행중")
-        
+
         return all_technical_data
-    
+
     def check_tech_id_exists(self, tech_id):
         select_query = '''
-        SELECT id FROM tech_stack WHERE id = ?
+        SELECT id FROM tech_stack WHERE id = %s
         '''
         self.cursor.execute(select_query, (tech_id,))
         row = self.cursor.fetchone()
@@ -75,16 +66,18 @@ class JobApiFetcher:
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         insert_query = '''
         INSERT INTO tech_stack (id, name, created_at, modified_at)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE modified_at=%s
         '''
 
         values = (
             tech_id,
             tech_name,
             now,
+            now,
             now
         )
-        
+
         try:
             self.cursor.execute(insert_query, values)
             self.conn.commit()
@@ -95,17 +88,19 @@ class JobApiFetcher:
 
     def check_duplicate_data(self, company_id, tech_id):
         select_query = '''
-        SELECT * FROM company_tech_mapping WHERE tech_id = ? AND company_id = ?
+        SELECT * FROM company_tech_mapping WHERE tech_id = %s AND company_id = %s
         '''
         self.cursor.execute(select_query, (company_id, tech_id))
         row = self.cursor.fetchone()
         return row is not None
 
-    def upload_compnay_tech_data(self, all_technical_data):
+    def upload_company_tech_data(self, all_technical_data):
+        self.cursor.execute('TRUNCATE company_tech_mapping')
+        self.conn.commit()
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         insert_query = '''
         INSERT INTO company_tech_mapping (company_id, tech_id, created_at, modified_at)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
         '''
 
         for data in all_technical_data:
@@ -137,7 +132,6 @@ class JobApiFetcher:
                 self.conn.rollback()
 
 
-
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         logger.info("Usage: python location_info.py start_page end_page")
@@ -146,7 +140,6 @@ if __name__ == "__main__":
     start_page = int(sys.argv[1])
     end_page = int(sys.argv[2])
 
-
-    fetcher = JobApiFetcher(start_page=start_page, end_page=end_page)
+    fetcher = CompanyTechFetcher(start_page=start_page, end_page=end_page)
     all_technical_data = fetcher.fetch_data()
-    fetcher.upload_compnay_tech_data(all_technical_data)
+    fetcher.upload_company_tech_data(all_technical_data)

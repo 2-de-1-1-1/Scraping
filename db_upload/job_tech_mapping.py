@@ -1,33 +1,24 @@
-import requests
-import pyodbc
 import datetime
 import sys
-from config import *
+
+import requests
+
+from fetcher import ApiFetcher
 from logging_config import *
 
 logger = logging.getLogger(script_name)
 
-class JobApiFetcher:
+
+class JobTechFetcher(ApiFetcher):
     def __init__(self, start_page, end_page):
-        self.start_page = start_page
-        self.end_page = end_page
-        self.base_job_url = "https://career.programmers.co.kr/api/job_positions?page="
-        self.base_company_url = "https://career.programmers.co.kr/api/companies/"
+        super().__init__(start_page, end_page)
         self.extracted_data = []
-        self.conn = pyodbc.connect(
-            f'DRIVER={driver};'
-            f'SERVER={server};'
-            f'DATABASE={database};'
-            f'UID={username};'
-            f'PWD={password};'
-        )
-        self.cursor = self.conn.cursor()
 
     def fetch_and_extract_data(self):
         for page in range(self.start_page, self.end_page + 1):
             url = f"https://career.programmers.co.kr/api/job_positions?page={page}"
             response = requests.get(url)
-            
+
             if response.status_code == 200:
                 jobs_data = response.json().get('jobPositions', [])
                 for job in jobs_data:
@@ -49,7 +40,7 @@ class JobApiFetcher:
     def insert_new_tech_stack(self, tech_id, tech_name):
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         select_query = '''
-        SELECT id FROM tech_stack WHERE id = ?
+        SELECT id FROM tech_stack WHERE id = %s
         '''
         self.cursor.execute(select_query, (tech_id,))
         row = self.cursor.fetchone()
@@ -57,11 +48,13 @@ class JobApiFetcher:
         if row is None:
             insert_query = '''
             INSERT INTO tech_stack (id, name, created_at, modified_at)
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE VALUES modified_at=%s
             '''
             values = (
                 tech_id,
                 tech_name,
+                now,
                 now,
                 now
             )
@@ -73,13 +66,17 @@ class JobApiFetcher:
             except Exception as e:
                 logger.info(f"기술 스택 추가 중 오류 발생 : ID {tech_id}, Name {tech_name} - {e}")
                 self.conn.rollback()
+                raise e
         return False
 
     def upload_job_tech_mapping_data(self):
+        self.cursor.execute('TRUNCATE job_tech_mapping')
+        self.conn.commit()
+
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         insert_query = '''
         INSERT INTO job_tech_mapping (job_id, tech_id, created_at, modified_at)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
         '''
 
         processed_tech_job_pairs = set()
@@ -109,11 +106,12 @@ class JobApiFetcher:
 
     def check_tech_job_pair_exists(self, job_id, tech_id):
         select_query = '''
-        SELECT id FROM job_tech_mapping WHERE job_id = ? AND tech_id = ?
+        SELECT id FROM job_tech_mapping WHERE job_id = %s AND tech_id = %s
         '''
         self.cursor.execute(select_query, (job_id, tech_id))
         row = self.cursor.fetchone()
         return row is not None
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -123,7 +121,7 @@ if __name__ == "__main__":
     start_page = int(sys.argv[1])
     end_page = int(sys.argv[2])
 
-    fetcher = JobApiFetcher(start_page=start_page, end_page=end_page)
+    fetcher = JobTechFetcher(start_page=start_page, end_page=end_page)
     fetcher.fetch_and_extract_data()
     fetcher.upload_tech_stack_data()
     fetcher.upload_job_tech_mapping_data()
