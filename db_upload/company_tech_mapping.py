@@ -2,6 +2,10 @@ import requests
 from config import *
 import pyodbc
 import datetime
+import sys
+from logging_config import *
+
+logger = logging.getLogger(script_name)
 
 class JobApiFetcher:
     def __init__(self, start_page, end_page):
@@ -24,7 +28,7 @@ class JobApiFetcher:
         if response.status_code == 200:
             return response.json()
         else:
-            print(f"{page}로드 실패. Status code: {response.status_code}")
+            logger.info(f"{page}로드 실패. Status code: {response.status_code}")
             return None
 
     def fetch_company_details(self, company_id):
@@ -40,7 +44,7 @@ class JobApiFetcher:
             ]
             return technical_tags
         else:
-            print(f" {company_id}기술 태그 수집 실패. Status code: {response.status_code}")
+            logger.info(f" {company_id}기술 태그 수집 실패. Status code: {response.status_code}")
             return []
 
     def fetch_data(self):
@@ -55,37 +59,10 @@ class JobApiFetcher:
                     if technical_tags:
                         all_technical_data.extend(technical_tags)
             
-            print(f"{page}페이지 진행중")
+            logger.info(f"{page}페이지 진행중")
         
         return all_technical_data
-
-    def upload_compnay_tech_data(self, all_technical_data):
-        now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        insert_query = '''
-        INSERT INTO company_tech_mapping (company_id, tech_id, created_at, modified_at)
-        VALUES (?, ?, ?, ?)
-        '''
-
-        for data in all_technical_data:
-            tech_id = data["tech_id"]
-            tech_name = data["name"]
-
-            if not self.check_tech_id_exists(tech_id):
-                self.insert_new_tech_stack(tech_id, tech_name)
-            
-            values = (
-                data["company_id"],
-                data["tech_id"],
-                now,
-                now
-            )
-            try:
-                self.cursor.execute(insert_query, values)
-                self.conn.commit()
-            except Exception as e:
-                print(f"데이터 삽입 중 오류 발생 : tech_id {data['tech_id']} - {e}")
-                self.conn.rollback()
-        
+    
     def check_tech_id_exists(self, tech_id):
         select_query = '''
         SELECT id FROM tech_stack WHERE id = ?
@@ -93,7 +70,7 @@ class JobApiFetcher:
         self.cursor.execute(select_query, (tech_id,))
         row = self.cursor.fetchone()
         return row is not None
-    
+
     def insert_new_tech_stack(self, tech_id, tech_name):
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         insert_query = '''
@@ -111,17 +88,65 @@ class JobApiFetcher:
         try:
             self.cursor.execute(insert_query, values)
             self.conn.commit()
-            print(f"기술 스택 추가: ID {tech_id}, Name {tech_name}")
+            logger.info(f"기술 스택 추가: ID {tech_id}, Name {tech_name}")
         except Exception as e:
-            print(f"기술 스택 추가 중 오류 발생 : ID {tech_id}, Name {tech_name} - {e}")
+            logger.info(f"기술 스택 추가 중 오류 발생 : ID {tech_id}, Name {tech_name} - {e}")
             self.conn.rollback()
+
+    def check_duplicate_data(self, company_id, tech_id):
+        select_query = '''
+        SELECT * FROM company_tech_mapping WHERE tech_id = ? AND company_id = ?
+        '''
+        self.cursor.execute(select_query, (company_id, tech_id))
+        row = self.cursor.fetchone()
+        return row is not None
+
+    def upload_compnay_tech_data(self, all_technical_data):
+        now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        insert_query = '''
+        INSERT INTO company_tech_mapping (company_id, tech_id, created_at, modified_at)
+        VALUES (?, ?, ?, ?)
+        '''
+
+        for data in all_technical_data:
+            tech_id = data["tech_id"]
+            tech_name = data["name"]
+            company_id = data["company_id"]
+
+            # 중복 데이터 확인
+            if self.check_duplicate_data(tech_id, company_id):
+                logger.info(f"중복 데이터로 처리됨: company_id {company_id}, tech_id {tech_id}")
+                continue
+
+            # tech_stack 테이블에 기술 스택 추가 (없을 경우)
+            if not self.check_tech_id_exists(tech_id):
+                self.insert_new_tech_stack(tech_id, tech_name)
+
+            values = (
+                company_id,
+                tech_id,
+                now,
+                now
+            )
+            try:
+                self.cursor.execute(insert_query, values)
+                self.conn.commit()
+                logger.info(f"데이터 삽입 완료: company_id {company_id}, tech_id {tech_id}")
+            except Exception as e:
+                logger.info(f"데이터 삽입 중 오류 발생 : tech_id {tech_id} - {e}")
+                self.conn.rollback()
+
 
 
 if __name__ == "__main__":
-    start_page_index = 1
-    end_page_index = 71
+    if len(sys.argv) != 3:
+        logger.info("Usage: python location_info.py start_page end_page")
+        sys.exit(1)
+
+    start_page = int(sys.argv[1])
+    end_page = int(sys.argv[2])
 
 
-    fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index)
+    fetcher = JobApiFetcher(start_page=start_page, end_page=end_page)
     all_technical_data = fetcher.fetch_data()
     fetcher.upload_compnay_tech_data(all_technical_data)

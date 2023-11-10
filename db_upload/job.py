@@ -2,7 +2,11 @@ import requests
 import pyodbc
 import datetime
 import re
+import sys
 from config import *
+from logging_config import *
+
+logger = logging.getLogger(script_name)
 
 class JobApiFetcher:
     def __init__(self, start_page, end_page):
@@ -11,7 +15,6 @@ class JobApiFetcher:
         self.base_job_url = "https://career.programmers.co.kr/api/job_positions?page="
         self.base_company_url = "https://career.programmers.co.kr/api/companies/"
         self.companies_seen = set()
-        self.numeric_id = 0
         self.conn = pyodbc.connect(
             f'DRIVER={driver};'
             f'SERVER={server};'
@@ -24,10 +27,10 @@ class JobApiFetcher:
     def fetch_job_positions(self, page):
         response = requests.get(self.base_job_url + str(page))
         if response.status_code == 200:
-            print(f"페이지 {page}: 직무 정보를 성공적으로 가져왔습니다.")
+            logger.info(f"페이지 {page}: 직무 정보를 성공적으로 가져왔습니다.")
             return response.json()
         else:
-            print(f"페이지 {page}: 직무 정보 가져오기 실패. 상태 코드: {response.status_code}")
+            logger.info(f"페이지 {page}: 직무 정보 가져오기 실패. 상태 코드: {response.status_code}")
             return None
 
     def get_location_info_id(self, location_info_id):
@@ -41,7 +44,7 @@ class JobApiFetcher:
             else:
                 return None
         except Exception as e:
-            print(f"location_info_id 확인 중 오류가 발생했습니다.: {e}")
+            logger.info(f"location_info_id 확인 중 오류가 발생했습니다.: {e}")
             return None
 
     def upload_job_data(self, job_data):
@@ -71,7 +74,7 @@ class JobApiFetcher:
             self.cursor.execute(insert_query, values)
             self.conn.commit()
         except Exception as e:
-            print(f" ID {job_data['id']} 추가 중 오류가 발생했습니다.: {e}")
+            logger.info(f" ID {job_data['id']} 추가 중 오류가 발생했습니다.: {e}")
 
     def extract_second_date(self, period_string):
         match = re.search(r'부터 (\d{4}-\d{2}-\d{2} \d{2}:\d{2})까지', period_string)
@@ -154,7 +157,7 @@ class JobApiFetcher:
             self.cursor.execute(insert_query, values)
             self.conn.commit()
         except Exception as e:
-            print(f" ID {job_data['id']} 추가 중 오류가 발생했습니다.: {e}")
+            logger.info(f" ID {job_data['id']} 추가 중 오류가 발생했습니다.: {e}")
 
     def process_job_data_pages(self):
         for page in range(self.start_page, self.end_page + 1):
@@ -167,19 +170,22 @@ class JobApiFetcher:
                         processed_job_data = self.preprocess_job_data(job)
                         try:
                             self.preprocess_and_upload_data(processed_job_data)
-                            print(f"페이지 {page} 처리 완료.")
+                            logger.info(f"페이지 {page} 처리 완료.")
                         except pyodbc.IntegrityError as e:
-                            print(f"페이지 {page} 처리 중 오류 발생: {e}")
+                            logger.info(f"페이지 {page} 처리 중 오류 발생: {e}")
             else:
-                print(f"페이지 {page} 처리 실패, 상태 코드: {job_data.status_code}")
+                logger.info(f"페이지 {page} 처리 실패, 상태 코드: {job_data.status_code}")
                 break
 
 if __name__ == "__main__":
-    start_page_index = 1
-    end_page_index = 71
+    if len(sys.argv) != 3:
+        logger.info("Usage: python location_info.py start_page end_page")
+        sys.exit(1)
 
-    fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index)
+    start_page = int(sys.argv[1])
+    end_page = int(sys.argv[2])
+
+    fetcher = JobApiFetcher(start_page=start_page, end_page=end_page)
 
     fetcher.process_job_data_pages()
 
-    print("모든 직무 데이터가 데이터베이스에 업로드되었습니다.")

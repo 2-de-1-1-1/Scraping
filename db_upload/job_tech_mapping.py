@@ -1,12 +1,18 @@
 import requests
 import pyodbc
 import datetime
+import sys
 from config import *
+from logging_config import *
+
+logger = logging.getLogger(script_name)
 
 class JobApiFetcher:
     def __init__(self, start_page, end_page):
         self.start_page = start_page
         self.end_page = end_page
+        self.base_job_url = "https://career.programmers.co.kr/api/job_positions?page="
+        self.base_company_url = "https://career.programmers.co.kr/api/companies/"
         self.extracted_data = []
         self.conn = pyodbc.connect(
             f'DRIVER={driver};'
@@ -28,9 +34,9 @@ class JobApiFetcher:
                     for tag in job.get("technicalTags", []):
                         job_tech_dict = {"job_id": job["id"], "tech_id": tag["id"], "tech_name": tag["name"]}
                         self.extracted_data.append(job_tech_dict)
-                print(f"페이지 {page}에서 데이터를 가져오고 추출했습니다.")
+                logger.info(f"페이지 {page}에서 데이터를 가져오고 추출했습니다.")
             else:
-                print(f"페이지 {page}에서 데이터를 가져오는 데 실패했습니다. 상태 코드: {response.status_code}")
+                logger.info(f"페이지 {page}에서 데이터를 가져오는 데 실패했습니다. 상태 코드: {response.status_code}")
                 break
 
     def upload_tech_stack_data(self):
@@ -38,7 +44,7 @@ class JobApiFetcher:
             tech_id = data["tech_id"]
             tech_name = data["tech_name"]
             if not self.insert_new_tech_stack(tech_id, tech_name):
-                print(f"기술 스택 추가 중 오류 발생: ID {tech_id}, Name {tech_name}")
+                logger.info(f"기술 스택 추가 중 오류 발생: ID {tech_id}, Name {tech_name}")
 
     def insert_new_tech_stack(self, tech_id, tech_name):
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -62,10 +68,10 @@ class JobApiFetcher:
             try:
                 self.cursor.execute(insert_query, values)
                 self.conn.commit()
-                print(f"기술 스택 추가: ID {tech_id}, Name {tech_name}")
+                logger.info(f"기술 스택 추가: ID {tech_id}, Name {tech_name}")
                 return True
             except Exception as e:
-                print(f"기술 스택 추가 중 오류 발생 : ID {tech_id}, Name {tech_name} - {e}")
+                logger.error(f"기술 스택 추가 중 오류 발생 : ID {tech_id}, Name {tech_name} - {e}")
                 self.conn.rollback()
         return False
 
@@ -95,10 +101,10 @@ class JobApiFetcher:
                 try:
                     self.cursor.execute(insert_query, values)
                     self.conn.commit()
-                    print(f"데이터 삽입 완료: job_id {job_id}, tech_id {tech_id}")
+                    logger.info(f"데이터 삽입 완료: job_id {job_id}, tech_id {tech_id}")
                     processed_tech_job_pairs.add((job_id, tech_id))
                 except Exception as e:
-                    print(f"데이터 삽입 중 오류 발생: job_id {job_id}, tech_id {tech_id} - {e}")
+                    logger.error(f"데이터 삽입 중 오류 발생: job_id {job_id}, tech_id {tech_id} - {e}")
                     self.conn.rollback()
 
     def check_tech_job_pair_exists(self, job_id, tech_id):
@@ -110,10 +116,14 @@ class JobApiFetcher:
         return row is not None
 
 if __name__ == "__main__":
-    start_page_index = 1
-    end_page_index = 71
+    if len(sys.argv) != 3:
+        logger.error("Usage: python location_info.py start_page end_page")
+        sys.exit(1)
 
-    fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index)
+    start_page = int(sys.argv[1])
+    end_page = int(sys.argv[2])
+
+    fetcher = JobApiFetcher(start_page=start_page, end_page=end_page)
     fetcher.fetch_and_extract_data()
     fetcher.upload_tech_stack_data()
     fetcher.upload_job_tech_mapping_data()

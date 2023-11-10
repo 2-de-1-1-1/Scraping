@@ -2,8 +2,11 @@ import requests
 from config import *
 import pyodbc
 import datetime
+import sys
+from logging_config import *
 
-#company_welfare_mapping 테이블의 정보를 전처리하는 스크립트입니다.
+logger = logging.getLogger(script_name)
+
 
 class JobApiFetcher:
     def __init__(self, start_page, end_page):
@@ -12,6 +15,7 @@ class JobApiFetcher:
         self.base_job_url = "https://career.programmers.co.kr/api/job_positions?page="
         self.base_company_url = "https://career.programmers.co.kr/api/companies/"
         self.companies_seen = set()
+        self.inserted_company_welfare_pairs = set()
         self.conn = pyodbc.connect(
             f'DRIVER={driver};'
             f'SERVER={server};'
@@ -26,7 +30,7 @@ class JobApiFetcher:
         if response.status_code == 200:
             return response.json()
         else:
-            print(f"페이지 {page}에서 직무 정보를 가져오는데 실패했습니다. 상태 코드: {response.status_code}")
+            logger.info(f"페이지 {page}에서 직무 정보를 가져오는데 실패했습니다. 상태 코드: {response.status_code}")
             return None
 
     def fetch_company_welfare(self, company_id):
@@ -38,7 +42,7 @@ class JobApiFetcher:
             data = response.json()
             return data['company'].get('benefitTags', [])
         else:
-            print(f"회사 ID {company_id}에 대한 welfare를 가져오는데 실패했습니다. 상태 코드: {response.status_code}")
+            logger.info(f"회사 ID {company_id}에 대한 welfare를 가져오는데 실패했습니다. 상태 코드: {response.status_code}")
             return []
 
     def fetch_data(self):
@@ -57,7 +61,7 @@ class JobApiFetcher:
                                 'welfare_name': benefit
                             })
             
-            print(f"{page}페이지 진행중")
+            logger.info(f"{page}페이지 진행중")
         
         return all_benefit_data
     
@@ -85,9 +89,9 @@ class JobApiFetcher:
                 try:
                     self.cursor.execute(insert_query, values)
                     self.conn.commit()
-                    print(f"{data['welfare_name']} welfare에 업로드")
+                    logger.info(f"{data['welfare_name']} welfare에 업로드")
                 except Exception as e:
-                    print(f"welfare 데이터 삽입 중 오류 발생 : name {data['welfare_name']} - {e}")
+                    logger.info(f"welfare 데이터 삽입 중 오류 발생 : name {data['welfare_name']} - {e}")
                     self.conn.rollback()
 
 
@@ -109,7 +113,8 @@ class JobApiFetcher:
             company_id = data["company_id"]
             welfare_name = data["welfare_name"]
             welfare_id = self.get_welfare_id(welfare_name)
-            if welfare_id:
+
+            if not self.check_company_welfare_pair_exists(company_id, welfare_id):
                 values = (
                     data["company_id"],
                     welfare_id,
@@ -119,17 +124,32 @@ class JobApiFetcher:
                 try:
                     self.cursor.execute(insert_query, values)
                     self.conn.commit()
-                    print(f"{data['welfare_name']} company_welfare_mapping 업로드")
+                    logger.info(f"{data['welfare_name']} company_welfare_mapping 업로드")
+                    self.inserted_company_welfare_pairs.add((company_id, welfare_id))
                 except Exception as e:
-                    print(f"company_welfare_mapping 삽입 중 오류 발생 : name {data['welfare_name']} - {e}")
+                    logger.info(f"company_welfare_mapping 삽입 중 오류 발생 : name {data['welfare_name']} - {e}")
                     self.conn.rollback()
+            else:
+                logger.info(f"{data['welfare_name']} company_welfare_mapping 중복 데이터로 처리됨")
+
+    def check_company_welfare_pair_exists(self, company_id, welfare_id):
+        select_query = '''
+        SELECT id FROM company_welfare_mapping WHERE company_id = ? AND welfare_id = ?
+        '''
+        self.cursor.execute(select_query, (company_id, welfare_id))
+        row = self.cursor.fetchone()
+        return row is not None
 
 if __name__ == "__main__":
-    start_page_index = 1
-    end_page_index = 71
+    if len(sys.argv) != 3:
+        logger.info("Usage: python location_info.py start_page end_page")
+        sys.exit(1)
+
+    start_page = int(sys.argv[1])
+    end_page = int(sys.argv[2])
 
 
-    fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index)
+    fetcher = JobApiFetcher(start_page=start_page, end_page=end_page)
     all_benefit_data = fetcher.fetch_data()
     fetcher.upload_welfare_data(all_benefit_data)
     fetcher.upload_company_welfare_mapping_data(all_benefit_data)

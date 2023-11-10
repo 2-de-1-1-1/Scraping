@@ -2,6 +2,10 @@ import requests
 import datetime
 import pyodbc
 from config import *
+import sys
+from logging_config import *
+
+logger = logging.getLogger(script_name)
 
 class JobApiFetcher:
     def __init__(self, start_page, end_page):
@@ -31,10 +35,10 @@ class JobApiFetcher:
                     tag_name = tag.get('name')
                     if tag_id and tag_name:
                         self.tech_stack.add((tag_id, tag_name))
-            print(f"페이지 {page}의 테크 스택 데이터 수집 완료")
+            logger.info(f"페이지 {page}의 테크 스택 데이터 수집 완료")
             return True
         else:
-            print(f"{page} 페이지 실패했습니다. 상태 코드: {response.status_code}")
+            logger.info(f"{page} 페이지 실패했습니다. 상태 코드: {response.status_code}")
             return False
 
     def fetch_company_tech_stack(self, company_id):
@@ -50,10 +54,10 @@ class JobApiFetcher:
             ]
             for tag in technical_tags:
                 self.tech_stack.add((tag['id'], tag['name']))
-            print(f"회사 ID {company_id}의 테크 스택 데이터 수집 완료")
+            logger.info(f"회사 ID {company_id}의 테크 스택 데이터 수집 완료")
             return technical_tags
         else:
-            print(f"실패 {company_id}. Status code: {response.status_code}")
+            logger.info(f"실패 {company_id}. Status code: {response.status_code}")
             return []
 
     def upload_tech_stack_to_db(self):
@@ -70,16 +74,20 @@ class JobApiFetcher:
                         VALUES (?, ?, ?, ?)
                     """, (tech_id, tech_name, datetime.datetime.now(), datetime.datetime.now()))
             self.conn.commit()
-            print("테크 스택 데이터를 데이터베이스에 업로드했습니다.")
+            logger.info("테크 스택 데이터를 데이터베이스에 업로드했습니다.")
         except Exception as e:
-            print(f"데이터베이스 업로드 중 오류 발생: {str(e)}")
+            logger.info(f"데이터베이스 업로드 중 오류 발생: {str(e)}")
         finally:
             self.cursor.close()
             self.conn.close()
 
 if __name__ == "__main__":
-    start_page = 1  
-    end_page = 71
+    if len(sys.argv) != 3:
+        logger.info("Usage: python location_info.py start_page end_page")
+        sys.exit(1)
+
+    start_page = int(sys.argv[1])
+    end_page = int(sys.argv[2])
 
     fetcher = JobApiFetcher(start_page, end_page)
     fetcher.upload_tech_stack_to_db()

@@ -3,12 +3,14 @@ import os
 import pyodbc
 from config import *
 import datetime
+import sys
 
 class JobApiFetcher:
     def __init__(self, start_page, end_page):
         self.start_page = start_page
         self.end_page = end_page
         self.base_job_url = "https://career.programmers.co.kr/api/job_positions?page="
+        self.base_company_url = "https://career.programmers.co.kr/api/companies/"
         self.conn = pyodbc.connect(
             f'DRIVER={driver};'
             f'SERVER={server};'
@@ -99,8 +101,12 @@ def fetch_and_upload_companies(fetcher, start_page, end_page):
     print("모든 기업 데이터가 서버 데이터베이스에 업로드되었습니다.")
 
 if __name__ == "__main__":
-    start_page_index = 1
-    end_page_index = 2
+    if len(sys.argv) != 3:
+        print("Usage: python location_info.py start_page end_page")
+        sys.exit(1)
 
-    fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index)
-    fetch_and_upload_companies(fetcher, start_page_index, end_page_index)
+    start_page = int(sys.argv[1])
+    end_page = int(sys.argv[2])
+
+    fetcher = JobApiFetcher(start_page=start_page, end_page=end_page)
+    fetch_and_upload_companies(fetcher, start_page, end_page)

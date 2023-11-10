@@ -1,6 +1,7 @@
 import requests
 import pyodbc
 import os
+import sys
 from config import *
 import datetime
 
@@ -8,6 +9,8 @@ class JobApiFetcher:
     def __init__(self, start_page, end_page):
         self.start_page = start_page
         self.end_page = end_page
+        self.base_job_url = "https://career.programmers.co.kr/api/job_positions?page="
+        self.base_company_url = "https://career.programmers.co.kr/api/companies/"
         self.filtered_data = []  
         self.conn = pyodbc.connect(
             f'DRIVER={driver};'
@@ -20,7 +23,7 @@ class JobApiFetcher:
 
     def fetch_data(self):
         for page in range(self.start_page, self.end_page + 1):
-            url = f"https://career.programmers.co.kr/api/job_positions?page={page}"
+            url = self.base_job_url + str(page)  # 기존 코드에서 수정된 부분
             response = requests.get(url)
             
             if response.status_code == 200:
@@ -47,24 +50,40 @@ class JobApiFetcher:
         VALUES (?, ?, ?, ?)
         '''
         for data in self.filtered_data:
-            values = (
-                data["job_id"],
-                data["position_id"],
-                now,
-                now
-            )
-            try:
-                self.cursor.execute(insert_query, values)
-                self.conn.commit()
-                print(f"{data['job_id']}, {data['position_id']} 업로드 완료")
-            except Exception as e:
-                print(f"{data['job_id']}에서 오류 발생: {e}")
-                self.conn.rollback()
+            job_id = data["job_id"]
+            position_id = data["position_id"]
+            
+            if not self.job_position_pair_exists(job_id, position_id):
+                values = (
+                    job_id,
+                    position_id,
+                    now,
+                    now
+                )
+                try:
+                    self.cursor.execute(insert_query, values)
+                    self.conn.commit()
+                    print(f"{job_id}, {position_id} 업로드 완료")
+                except Exception as e:
+                    print(f"{job_id}에서 오류 발생: {e}")
+                    self.conn.rollback()
+            else:
+                print(f"{job_id}, {position_id} 이미 데이터베이스에 존재하여 업로드 건너뛰었습니다.")
+
+    def job_position_pair_exists(self, job_id, position_id):
+        query = "SELECT COUNT(*) FROM job_position_mapping WHERE job_id = ? AND position_id = ?"
+        self.cursor.execute(query, (job_id, position_id))
+        return self.cursor.fetchone()[0] > 0
+
 
 if __name__ == "__main__":
-    start_page_index = 1
-    end_page_index = 71
+    if len(sys.argv) != 3:
+        print("Usage: python location_info.py start_page end_page")
+        sys.exit(1)
+
+    start_page = int(sys.argv[1])
+    end_page = int(sys.argv[2])
     
-    fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index)
+    fetcher = JobApiFetcher(start_page=start_page, end_page=end_page)
     fetcher.fetch_data()
     fetcher.upload_position_mapping_data()
