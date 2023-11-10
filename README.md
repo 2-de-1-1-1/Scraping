@@ -4,32 +4,27 @@
 
 실행방법
 
+db_upload.py에 
+
+원하는 범위를 지정하고
+
+해당 파일을 실행시키면 됩니다.
+
+
 ```python
-if __name__ == "__main__":
-    start_page_index = 1
-    end_page_index = 71
+start_page = 1
+end_page = 3
 
-    fetcher = JobApiFetcher(start_page=start_page_index, end_page=end_page_index)
 
-    fetcher.process_job_data_pages()
+scripts = [
+    "location_info.py",
+    "company.py",
+    "job.py",
+    "company_welfare_mapping.py",
+    "tech_stack.py",
+    "company_tech_mapping.py",
+    "job_tech_mapping.py",
+    "job_position_mapping.py"
+]
 ```
-원하는 페이지 인덱스를 입력하고 터미널에서 실행시키면됩니다.
-
-실행 순서
-
-location_info
-
-company
-
-job
-
-company_welfare_mapping
-
-tech_stack
-
-company_tech_mapping
-
-job_tech_mapping
-
-job_position_mapping
 
