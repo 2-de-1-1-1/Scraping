@@ -1,28 +1,22 @@
-import requests
 import datetime
-import pyodbc
-from config import *
 import sys
+
+import requests
+
+from fetcher import ApiFetcher
 from logging_config import *
 
 logger = logging.getLogger(script_name)
 
-class JobApiFetcher:
+
+class TechStackFetcher(ApiFetcher):
     def __init__(self, start_page, end_page):
-        self.start_page = start_page
-        self.end_page = end_page
-        self.base_job_url = "https://career.programmers.co.kr/api/job_positions?page="
-        self.base_company_url = "https://career.programmers.co.kr/api/companies/"
+        super().__init__(start_page, end_page)
         self.tech_stack = set()
-        self.companies_seen = set()
-        self.conn = pyodbc.connect(
-            f'DRIVER={driver};'
-            f'SERVER={server};'
-            f'DATABASE={database};'
-            f'UID={username};'
-            f'PWD={password};'
-        )
-        self.cursor = self.conn.cursor()
+
+    def fetch(self):
+        for page in range(start_page, end_page):
+            self.fetch_job_tech_stack(page)
 
     def fetch_job_tech_stack(self, page):
         response = requests.get(f"{self.base_job_url}{page}")
@@ -65,14 +59,11 @@ class JobApiFetcher:
 
         try:
             for tech_id, tech_name in tech_stack_dict.items():
-                self.cursor.execute("SELECT COUNT(1) FROM tech_stack WHERE id=?", tech_id)
-                count = self.cursor.fetchone()[0]
-
-                if count == 0:
-                    self.cursor.execute("""
-                        INSERT INTO tech_stack (id, name, created_at, modified_at)
-                        VALUES (?, ?, ?, ?)
-                    """, (tech_id, tech_name, datetime.datetime.now(), datetime.datetime.now()))
+                self.cursor.execute("""
+                    INSERT INTO tech_stack (id, name, created_at, modified_at)
+                    VALUES (%s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE name=%s, modified_at=%s
+                """, (tech_id, tech_name, datetime.datetime.now(), datetime.datetime.now(), tech_name, datetime.datetime.now()))
             self.conn.commit()
             logger.info("테크 스택 데이터를 데이터베이스에 업로드했습니다.")
         except Exception as e:
@@ -80,6 +71,7 @@ class JobApiFetcher:
         finally:
             self.cursor.close()
             self.conn.close()
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -89,5 +81,6 @@ if __name__ == "__main__":
     start_page = int(sys.argv[1])
     end_page = int(sys.argv[2])
 
-    fetcher = JobApiFetcher(start_page, end_page)
+    fetcher = TechStackFetcher(start_page, end_page)
+    fetcher.fetch()
     fetcher.upload_tech_stack_to_db()

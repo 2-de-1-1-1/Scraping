@@ -3,26 +3,15 @@ import pyodbc
 import datetime
 import re
 import sys
-from config import *
+from fetcher import ApiFetcher
 from logging_config import *
 
 logger = logging.getLogger(script_name)
 
-class JobApiFetcher:
+
+class JobApiFetcher(ApiFetcher):
     def __init__(self, start_page, end_page):
-        self.start_page = start_page
-        self.end_page = end_page
-        self.base_job_url = "https://career.programmers.co.kr/api/job_positions?page="
-        self.base_company_url = "https://career.programmers.co.kr/api/companies/"
-        self.companies_seen = set()
-        self.conn = pyodbc.connect(
-            f'DRIVER={driver};'
-            f'SERVER={server};'
-            f'DATABASE={database};'
-            f'UID={username};'
-            f'PWD={password};'
-        )
-        self.cursor = self.conn.cursor()
+        super().__init__(start_page, end_page)
 
     def fetch_job_positions(self, page):
         response = requests.get(self.base_job_url + str(page))
@@ -35,7 +24,7 @@ class JobApiFetcher:
 
     def get_location_info_id(self, location_info_id):
         try:
-            query = "SELECT id FROM location_info WHERE id = ?"
+            query = "SELECT id FROM location_info WHERE id = %s"
             self.cursor.execute(query, (location_info_id,))
             result = self.cursor.fetchone()
 
@@ -55,7 +44,8 @@ class JobApiFetcher:
 
             insert_query = '''
             INSERT INTO job (id, name, company_id, work_type, due_datetime, min_wage, max_wage, min_experience, max_experience, loc_info_id, created_at, modified_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE name=%s, company_id=%s, work_type=%s, due_datetime=%s, min_wage=%s, max_wage=%s, min_experience=%s, max_experience=%s, loc_info_id=%s, modified_at=%s
             '''
             values = (
                 job_data['id'],
@@ -69,7 +59,17 @@ class JobApiFetcher:
                 job_data['max_experience'],
                 location_info_id,
                 now,
-                now
+                now,
+                job_data['name'],
+                job_data['company_id'],
+                job_data['work_type'],
+                job_data['due_datetime'],
+                job_data.get('min_wage'),
+                job_data.get('max_wage'),
+                job_data['min_experience'],
+                job_data['max_experience'],
+                location_info_id,
+                now,
             )
             self.cursor.execute(insert_query, values)
             self.conn.commit()
@@ -137,9 +137,10 @@ class JobApiFetcher:
             location_info_id = self.get_location_info_id(job_data['loc_info_id'])
 
             insert_query = '''
-            INSERT INTO job (id, name, company_id, work_type, due_datetime, min_wage, max_wage, min_experience, max_experience, loc_info_id, created_at, modified_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            '''
+                        INSERT INTO job (id, name, company_id, work_type, due_datetime, min_wage, max_wage, min_experience, max_experience, loc_info_id, created_at, modified_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON DUPLICATE KEY UPDATE name=%s, company_id=%s, work_type=%s, due_datetime=%s, min_wage=%s, max_wage=%s, min_experience=%s, max_experience=%s, loc_info_id=%s, modified_at=%s
+                        '''
             values = (
                 job_data['id'],
                 job_data['name'],
@@ -152,7 +153,17 @@ class JobApiFetcher:
                 job_data['max_experience'],
                 location_info_id,
                 now,
-                now
+                now,
+                job_data['name'],
+                job_data['company_id'],
+                job_data['work_type'],
+                job_data['due_datetime'],
+                job_data.get('min_wage'),
+                job_data.get('max_wage'),
+                job_data['min_experience'],
+                job_data['max_experience'],
+                location_info_id,
+                now,
             )
             self.cursor.execute(insert_query, values)
             self.conn.commit()
@@ -177,6 +188,7 @@ class JobApiFetcher:
                 logger.info(f"페이지 {page} 처리 실패, 상태 코드: {job_data.status_code}")
                 break
 
+
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         logger.info("Usage: python location_info.py start_page end_page")
@@ -188,4 +200,3 @@ if __name__ == "__main__":
     fetcher = JobApiFetcher(start_page=start_page, end_page=end_page)
 
     fetcher.process_job_data_pages()
-

@@ -16,6 +16,7 @@ scripts = [
     "tech_stack.py",
     "company_tech_mapping.py",
     "job_tech_mapping.py",
+    "position.py"
     "job_position_mapping.py"
 ]
 

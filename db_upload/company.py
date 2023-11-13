@@ -1,27 +1,15 @@
-import requests
-import os
-import pyodbc
-from config import *
 import datetime
 import sys
+import requests
+from fetcher import ApiFetcher
 from logging_config import *
 
 logger = logging.getLogger(script_name)
 
-class JobApiFetcher:
+
+class CompanyApiFetcher(ApiFetcher):
     def __init__(self, start_page, end_page):
-        self.start_page = start_page
-        self.end_page = end_page
-        self.base_job_url = "https://career.programmers.co.kr/api/job_positions?page="
-        self.base_company_url = "https://career.programmers.co.kr/api/companies/"
-        self.conn = pyodbc.connect(
-            f'DRIVER={driver};'
-            f'SERVER={server};'
-            f'DATABASE={database};'
-            f'UID={username};'
-            f'PWD={password};'
-        )
-        self.cursor = self.conn.cursor()
+        super().__init__(start_page, end_page)
 
     def fetch_job_positions(self, page):
         response = requests.get(self.base_job_url + str(page))
@@ -38,36 +26,41 @@ class JobApiFetcher:
 
     def upload_company_data(self, company_data):
         try:
-            if not self.check_company_exists(company_data['id']):
-                now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # 현재 시간
-                insert_query = '''
-                INSERT INTO Company (id, name, num_employees, investment, revenue, homepage, loc_info_id, created_at, modified_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                '''
-                values = (
-                    company_data['id'],
-                    company_data['name'],
-                    company_data.get('num_employees'),
-                    company_data.get('investment'),
-                    company_data.get('revenue'),
-                    company_data.get('homepage'),
-                    company_data.get('loc_info_id'),
-                    now,
-                    now
-                )
-                self.cursor.execute(insert_query, values)
-                self.conn.commit()
-                logger.info(f"기업 ID {company_data['id']}가 데이터베이스에 추가되었습니다.")
-            else:
-                logger.info(f"기업 ID {company_data['id']}는 이미 데이터베이스에 존재합니다.")
+            now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # 현재 시간
+            insert_query = '''
+            INSERT INTO Company (id, name, num_employees, investment, revenue, homepage, loc_info_id, created_at, modified_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE name=%s, num_employees=%s, investment=%s, revenue=%s, homepage=%s, loc_info_id=%s, modified_at=%s
+            '''
+            values = (
+                company_data['id'],
+                company_data['name'],
+                company_data.get('num_employees'),
+                company_data.get('investment'),
+                company_data.get('revenue'),
+                company_data.get('homepage'),
+                company_data.get('loc_info_id'),
+                now,
+                now,
+                company_data['name'],
+                company_data.get('num_employees'),
+                company_data.get('investment'),
+                company_data.get('revenue'),
+                company_data.get('homepage'),
+                company_data.get('loc_info_id'),
+                now,
+            )
+            self.cursor.execute(insert_query, values)
+            self.conn.commit()
         except Exception as e:
             logger.info(f"기업 ID {company_data['id']} 추가 중 오류가 발생했습니다: {e}")
+
 
 def preprocess_company(company_data):
     investment = company_data.get('funding')
     revenue = company_data.get('revenue')
     address = company_data.get('address')
-    
+
     new_company_data = {
         'id': company_data['id'],
         'name': company_data['name'],
@@ -77,15 +70,16 @@ def preprocess_company(company_data):
         'homepage': company_data.get('homeUrl'),
         'loc_info_id': None if not address else company_data['id'],
     }
-    
+
     return new_company_data
+
 
 def fetch_and_upload_companies(fetcher, start_page, end_page):
     processed_companies = set()
     for page in range(start_page, end_page + 1):
         url = f"https://career.programmers.co.kr/api/job_positions?page={page}"
         response = requests.get(url)
-        
+
         if response.status_code == 200:
             data = response.json()
             for job_data in data['jobPositions'][:22]:
@@ -103,6 +97,7 @@ def fetch_and_upload_companies(fetcher, start_page, end_page):
 
     logger.info("모든 기업 데이터가 서버 데이터베이스에 업로드되었습니다.")
 
+
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         logger.info("Usage: python location_info.py start_page end_page")
@@ -111,5 +106,5 @@ if __name__ == "__main__":
     start_page = int(sys.argv[1])
     end_page = int(sys.argv[2])
 
-    fetcher = JobApiFetcher(start_page=start_page, end_page=end_page)
+    fetcher = CompanyApiFetcher(start_page=start_page, end_page=end_page)
     fetch_and_upload_companies(fetcher, start_page, end_page)

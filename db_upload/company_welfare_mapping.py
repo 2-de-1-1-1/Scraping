@@ -1,29 +1,18 @@
-import requests
-from config import *
-import pyodbc
 import datetime
 import sys
+
+import requests
+
+from fetcher import ApiFetcher
 from logging_config import *
 
 logger = logging.getLogger(script_name)
 
 
-class JobApiFetcher:
+class CompanyWelfareFetcher(ApiFetcher):
     def __init__(self, start_page, end_page):
-        self.start_page = start_page
-        self.end_page = end_page
-        self.base_job_url = "https://career.programmers.co.kr/api/job_positions?page="
-        self.base_company_url = "https://career.programmers.co.kr/api/companies/"
-        self.companies_seen = set()
+        super().__init__(start_page, end_page)
         self.inserted_company_welfare_pairs = set()
-        self.conn = pyodbc.connect(
-            f'DRIVER={driver};'
-            f'SERVER={server};'
-            f'DATABASE={database};'
-            f'UID={username};'
-            f'PWD={password};'
-        )
-        self.cursor = self.conn.cursor()
 
     def fetch_job_positions(self, page):
         response = requests.get(self.base_job_url + str(page))
@@ -60,13 +49,13 @@ class JobApiFetcher:
                                 'company_id': company_id,
                                 'welfare_name': benefit
                             })
-            
+
             logger.info(f"{page}페이지 진행중")
-        
+
         return all_benefit_data
-    
+
     def welfare_name_exists(self, welfare_name):
-        check_query = "SELECT COUNT(*) FROM welfare WHERE name = ?"
+        check_query = "SELECT COUNT(*) FROM welfare WHERE name = %s"
         self.cursor.execute(check_query, (welfare_name,))
         return self.cursor.fetchone()[0] > 0
 
@@ -74,7 +63,8 @@ class JobApiFetcher:
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         insert_query = '''
         INSERT INTO welfare (name, created_at, modified_at)
-        VALUES (?, ?, ?)
+        VALUES (%s, %s, %s)
+        ON DUPLICATE KEY UPDATE modified_at=%s
         '''
 
         for data in all_benefit_data:
@@ -83,6 +73,7 @@ class JobApiFetcher:
             if not self.welfare_name_exists(welfare_name):
                 values = (
                     data["welfare_name"],
+                    now,
                     now,
                     now
                 )
@@ -94,19 +85,19 @@ class JobApiFetcher:
                     logger.info(f"welfare 데이터 삽입 중 오류 발생 : name {data['welfare_name']} - {e}")
                     self.conn.rollback()
 
-
     def get_welfare_id(self, welfare_name):
-        query = "SELECT id FROM welfare WHERE name = ?"
+        query = "SELECT id FROM welfare WHERE name = %s"
         self.cursor.execute(query, (welfare_name,))
         result = self.cursor.fetchone()
         return result[0] if result else None
 
-
     def upload_company_welfare_mapping_data(self, all_benefit_data):
+        self.cursor.execute('truncate company_welfare_mapping')
+        self.conn.commit()
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         insert_query = '''
         INSERT INTO company_welfare_mapping (company_id, welfare_id, created_at, modified_at)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
         '''
 
         for data in all_benefit_data:
@@ -134,11 +125,12 @@ class JobApiFetcher:
 
     def check_company_welfare_pair_exists(self, company_id, welfare_id):
         select_query = '''
-        SELECT id FROM company_welfare_mapping WHERE company_id = ? AND welfare_id = ?
+        SELECT id FROM company_welfare_mapping WHERE company_id = %s AND welfare_id = %s
         '''
         self.cursor.execute(select_query, (company_id, welfare_id))
         row = self.cursor.fetchone()
         return row is not None
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -148,8 +140,7 @@ if __name__ == "__main__":
     start_page = int(sys.argv[1])
     end_page = int(sys.argv[2])
 
-
-    fetcher = JobApiFetcher(start_page=start_page, end_page=end_page)
+    fetcher = CompanyWelfareFetcher(start_page=start_page, end_page=end_page)
     all_benefit_data = fetcher.fetch_data()
     fetcher.upload_welfare_data(all_benefit_data)
     fetcher.upload_company_welfare_mapping_data(all_benefit_data)

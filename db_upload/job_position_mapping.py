@@ -1,34 +1,24 @@
-import requests
-import pyodbc
-import os
-import sys
-from config import *
 import datetime
+import sys
+
+import requests
+
+from fetcher import ApiFetcher
 from logging_config import *
 
 logger = logging.getLogger(script_name)
 
-class JobApiFetcher:
+
+class JobPositionFetcher(ApiFetcher):
     def __init__(self, start_page, end_page):
-        self.start_page = start_page
-        self.end_page = end_page
-        self.base_job_url = "https://career.programmers.co.kr/api/job_positions?page="
-        self.base_company_url = "https://career.programmers.co.kr/api/companies/"
-        self.filtered_data = []  
-        self.conn = pyodbc.connect(
-            f'DRIVER={driver};'
-            f'SERVER={server};'
-            f'DATABASE={database};'
-            f'UID={username};'
-            f'PWD={password};'
-        )
-        self.cursor = self.conn.cursor()
+        super().__init__(start_page, end_page)
+        self.filtered_data = []
 
     def fetch_data(self):
         for page in range(self.start_page, self.end_page + 1):
             url = self.base_job_url + str(page)  # 기존 코드에서 수정된 부분
             response = requests.get(url)
-            
+
             if response.status_code == 200:
                 data = response.json()
                 if 'jobPositions' in data:
@@ -45,17 +35,20 @@ class JobApiFetcher:
             else:
                 logger.info(f" {page} 로드 실패. Status code: {response.status_code}")
                 break
-    
+
     def upload_position_mapping_data(self):
+        self.cursor.execute('TRUNCATE job_position_mapping')
+        self.conn.commit()
+
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         insert_query = '''
         INSERT INTO job_position_mapping (job_id, position_id, created_at, modified_at)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
         '''
         for data in self.filtered_data:
             job_id = data["job_id"]
             position_id = data["position_id"]
-            
+
             if not self.job_position_pair_exists(job_id, position_id):
                 values = (
                     job_id,
@@ -74,7 +67,7 @@ class JobApiFetcher:
                 logger.info(f"{job_id}, {position_id} 이미 데이터베이스에 존재하여 업로드 건너뛰었습니다.")
 
     def job_position_pair_exists(self, job_id, position_id):
-        query = "SELECT COUNT(*) FROM job_position_mapping WHERE job_id = ? AND position_id = ?"
+        query = "SELECT COUNT(*) FROM job_position_mapping WHERE job_id = %s AND position_id = %s"
         self.cursor.execute(query, (job_id, position_id))
         return self.cursor.fetchone()[0] > 0
 
@@ -86,7 +79,7 @@ if __name__ == "__main__":
 
     start_page = int(sys.argv[1])
     end_page = int(sys.argv[2])
-    
-    fetcher = JobApiFetcher(start_page=start_page, end_page=end_page)
+
+    fetcher = JobPositionFetcher(start_page=start_page, end_page=end_page)
     fetcher.fetch_data()
     fetcher.upload_position_mapping_data()
